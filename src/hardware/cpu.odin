@@ -24,52 +24,55 @@ Op :: enum u16 {
 	POP, CALL, RET, HALT,
 }
 
-registers :: struct {
-	/* Main Registers */
-	a:     u8, // accumulator
-
-	/* Index Registers */
-	x:     u8, // x index
-	y:     u8, // y index
-	sp:    u16, // stack pointer
-
-	/* Program Counter */
-	pc:    u16,
-
-	/* Status Register */
-	flags: u8,
-}
+clk: bool = false
 
 read_inst :: proc(inst: u16) -> Op {
 	opcode := Op(inst >> 11)
+	reg1: ^u8 = RegFile((inst & 0x70) >> 8)
+	reg2: ^u8 = RegFile(inst & 0x07)
+	imm:   u8 = u8(inst & 0x0F)
 	switch opcode {
 	case .ADD:
-		fmt.println("ADD!")
+		reg1^ = reg1^ + reg2^
+		fmt.println("ADD %v %v!", reg1^, reg2^)
 	case .ADDI:
-		fmt.println("ADDI!")
+		reg1^ = reg1^ + imm
+		fmt.println("ADDI %v %v!", reg1^, imm)
 	case .SUB:
-		fmt.println("SUB!")
+		reg1^ = reg1^ - reg2^
+		fmt.println("SUB %v %v!", reg1^, reg2^)
 	case .SUBI:
+		reg1^ = reg1^ - imm
 		fmt.println("SUBI!")
 	case .MUL:
+		reg1^ = reg1^ * reg2^
 		fmt.println("MUL!")
 	case .DIV:
+		reg1^ = reg1^ / reg2^
 		fmt.println("DIV!")
 	case .NOT:
+		reg1^ ~= (reg1^)
 		fmt.println("NOT!")
 	case .OR:
+		reg1^ = reg1^ | reg2^
 		fmt.println("OR!")
 	case .ORI:
+		reg1^ = reg1^ | imm
 		fmt.println("ORI!")
 	case .XOR:
+		reg1^ = reg1^ ~ reg2^
 		fmt.println("XOR!")
 	case .XORI:
+		reg1^ = reg1^ ~ imm
 		fmt.println("XORI!")
 	case .AND:
+		reg1^ = reg1^ & reg2^
 		fmt.println("AND!")
 	case .ANDI:
+		reg1^ = reg1^ & imm
 		fmt.println("ANDI!")
 	case .SRL:
+		// reg1^ = (reg1^ >> reg2^)
 		fmt.println("SRL!")
 	case .SRA:
 		fmt.println("SRA!")

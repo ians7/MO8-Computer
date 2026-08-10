@@ -39,25 +39,25 @@ use.
 | inst | opcode | function                                                                                        |
 | ---- | ------ | ----------------------------------------------------------------------------------------------- |
 | add  | 00000  | Add two registers, storing the result in the destination register                               |
-| addi | 00001  | Add an immediate value to r0                                                                    |
-| sub  | 00010  | Subtract the value of one register from another, storing the result in the destination register |
-| subi | 00011  | Subtract an immediate value from r0                                                             |
-| mul  | 00100  | Multiply two registers, storing the result in the destination register                          |
-| div  | 00101  | Divide one register by another, storing the result in the destination register                  |
-| not  | 00110  | Bitwise complement of r0; flips every bit                                                       |
-| or   | 00111  | Bitwise OR of r0 with an immediate value                                                        |
-| ori  | 01000  | Bitwise OR of two registers, storing the result in the destination register                     |
-| xor  | 01001  | Bitwise XOR of r0 with an immediate value                                                       |
-| xori | 01010  | Bitwise XOR of two registers, storing the result in the destination register                    |
-| and  | 01011  | Bitwise AND of r0 with an immediate value                                                       |
-| andi | 01100  | Bitwise AND of two registers, storing the result in the destination register                    |
-| srl  | 01101  | Logical shift r0 right by a register value                                                      |
-| sra  | 01110  | Arithmetic shift r0 right by a register value                                                   |
-| ld   | 01111  | Load a value from a memory address into r0                                                      |
-| st   | 10000  | Store r0 at a memory address                                                                    |
-| mov  | 10001  | Copy the value of one register into another                                                     |
+| sub  | 00001  | Add an immediate value to r0                                                                    |
+| mul  | 00010  | Subtract the value of one register from another, storing the result in the destination register |
+| div  | 00011  | Subtract an immediate value from r0                                                             |
+| not  | 00100  | Multiply two registers, storing the result in the destination register                          |
+| or   | 00101  | Divide one register by another, storing the result in the destination register                  |
+| xor  | 00110  | Bitwise complement of r0; flips every bit                                                       |
+| and  | 00111  | Bitwise OR of r0 with an immediate value                                                        |
+| srl  | 01000  | Bitwise OR of two registers, storing the result in the destination register                     |
+| sra  | 01001  | Bitwise XOR of r0 with an immediate value                                                       |
+| ld   | 01010  | Bitwise XOR of two registers, storing the result in the destination register                    |
+| st   | 01011  | Bitwise AND of r0 with an immediate value                                                       |
+| mov  | 01100  | Bitwise AND of two registers, storing the result in the destination register                    |
+| cmpr | 01101  | Logical shift r0 right by a register value                                                      |
+| addi | 01110  | Arithmetic shift r0 right by a register value                                                   |
+| xori | 01111  | Load a value from a memory address into r0                                                      |
+| subi | 10000  | Store r0 at a memory address                                                                    |
+| andi | 10001  | Copy the value of one register into another                                                     |
 | cmp  | 10010  | Compare r0 to an immediate value, updating flags                                                |
-| cmpr | 10011  | Compare two registers, updating flags                                                           |
+| ori  | 10011  | Compare two registers, updating flags                                                           |
 | jr   | 10100  | Jump to an address relative to PC by an immediate offset                                        |
 | jne  | 10101  | Jump to an address if the previous cmp indicates not equal                                      |
 | jeq  | 10110  | Jump to an address if the previous cmp indicates equal                                          |
@@ -74,21 +74,21 @@ use.
 **Note:** In all arithmetic operations, the first operand is the destination register.
 
 **Immediate Operations**
-| 15 - 11 | 10 - 8 | 7 - 0 |
-|----------|--------|---------------|
-| opcode | reg | immediate |
+| 15 - 11 | 10 - 8 |   7 - 0   |
+|---------|--------|-----------|
+| opcode  |  reg   | immediate |
 
 **Reg-Reg Operations**
-| 15 - 11 | 10 - 8 | 7 - 3 | 2 - 0 |
-|----------|--------|--------------|-------|
-| opcode | dst | reserved | src |
+| 15 - 11 | 10 - 8 |  7 - 3   | 2 - 0 |
+|---------|--------|----------|-------|
+| opcode  |  dst   | reserved |  src  |
 
 **Single-Reg Operations**
-| 15 - 11 | 10 - 8 | 7 - 0 |
-|---------|--------|-------|
-| opcode | reg | reserved |
+| 15 - 11 | 10 - 8 |  7 - 0   |
+|---------|--------|----------|
+| opcode  |  reg   | reserved |
 
 **None**
-| 15 - 11 | 10 - 8 - 0 |
+| 15 - 11 |   10 - 0   |
 |---------|------------|  
-| opcode | reserved |
+| opcode  |  reserved  |
