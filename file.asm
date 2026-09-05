@@ -1,5 +1,0 @@
-ADD b a
-SUB b a
-ADDI b 0x69
-RET
-HALT
