@@ -19,14 +19,15 @@ a width in advance.
 | 0 | `a` |
 | 1 | `b` |
 | 2 | `fp` |
+| 3 | `x` |
 | 4 | `sp` |
 | 5 | `pc` |
 | 6 | `flags` |
 
-Codes 3 and 7 are unassigned; naming one is an error rather than an alias onto a
+Code 7 is unassigned; naming it is an error rather than an alias onto a
 real register. A value read from a register is widened to 16 bits and truncated
 back to the register's own width on write, so `a` and `b` still behave as bytes
-while `fp`, `sp` and `pc` keep all sixteen. Carry flags at the destination
+while `fp`, `x`, `sp` and `pc` keep all sixteen. Carry flags at the destination
 register's own boundary, so an 8-bit add carries at `0xFF` and a 16-bit add at
 `0xFFFF`.
  I want to really limit my resources for a challenge, so I was initially
@@ -38,6 +39,7 @@ instructions meant that I did not need to have the accumulator register
 | a        | general purpose register                                                       | 8            |
 | b        | general purpose register                                                       | 8            |
 | fp       | function pointer register for holding the address used by the CALL alias       | 16           |
+| x        | index register; a general purpose 16-bit pointer for addressing memory          | 16           |
 | sp       | stack pointer register                                                         | 16           |
 | pc       | program counter register                                                       | 16           |
 | flags    | status register for boolean indicators reflecting outcome of recent ALU ops    | 8            |

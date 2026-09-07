@@ -367,7 +367,7 @@ register_table_test :: proc(t: ^testing.T) {
 	// Names the table deliberately does not carry: the rN aliases are gone,
 	// x and y are gone, and codes 3 and 7 are unassigned rather than aliased
 	// onto a real register.
-	for name in ([]string{"r0", "r1", "r2", "x", "y", "z", "", "A", "acc"}) {
+	for name in ([]string{"r0", "r1", "r2", "y", "z", "", "A", "acc"}) {
 		_, ok := assembler.REG_SRC(name)
 		testing.expectf(t, !ok, "%q should not be a register name", name)
 	}
@@ -378,8 +378,8 @@ register_table_matches_hardware_test :: proc(t: ^testing.T) {
 	// The assembler's name-to-code table and the hardware's register codes are
 	// two hand-maintained halves of the same encoding. If they drift, every
 	// operand assembles to the wrong register and nothing else notices.
-	names := []string{"a", "b", "fp", "sp", "pc", "flags"}
-	codes := []u16{R_A, R_B, R_FP, R_SP, R_PC, R_FLAGS}
+	names := []string{"a", "b", "fp", "x", "sp", "pc", "flags"}
+	codes := []u16{R_A, R_B, R_FP, R_X, R_SP, R_PC, R_FLAGS}
 
 	testing.expect_value(t, len(assembler.REGISTERS), len(names))
 	for name, i in names {

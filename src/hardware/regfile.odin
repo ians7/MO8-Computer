@@ -21,6 +21,9 @@ Registers :: struct {
 	a:     u8, // accumulator
 	b:     u8, // general use register
 
+	/* Index Register */
+	x:     u16, // general use 16-bit pointer, for indexing memory
+
 	/* Stack Pointer Register */
 	sp:    u16, // stack pointer
 
@@ -46,15 +49,20 @@ FP :: proc(m: ^Machine) -> ^u16 {
 	return &m.regs.fp
 }
 
+X :: proc(m: ^Machine) -> ^u16 {
+	return &m.regs.x
+}
+
 FLAGS :: proc(m: ^Machine) -> ^u8 {
 	return &m.regs.flags
 }
 
 // Register codes as they appear in the dst (bits 10-8) and src (bits 2-0)
-// fields. Every register is nameable by an operand; 3 and 7 are unassigned.
+// fields. Every register is nameable by an operand; 7 is unassigned.
 R_A :: 0
 R_B :: 1
 R_FP :: 2
+R_X :: 3
 R_SP :: 4
 R_PC :: 5
 R_FLAGS :: 6
@@ -75,6 +83,8 @@ RegRead :: proc(m: ^Machine, reg_idx: u16) -> (val: u16, reg_max: int, ok: bool)
 		return u16(m.regs.b), int(max(u8)), true
 	case R_FP:
 		return m.regs.fp, int(max(u16)), true
+	case R_X:
+		return m.regs.x, int(max(u16)), true
 	case R_SP:
 		return m.regs.sp, int(max(u16)), true
 	case R_PC:
@@ -95,6 +105,8 @@ RegWrite :: proc(m: ^Machine, reg_idx: u16, val: u16) -> bool {
 		m.regs.b = u8(val)
 	case R_FP:
 		m.regs.fp = val
+	case R_X:
+		m.regs.x = val
 	case R_SP:
 		m.regs.sp = val
 	case R_PC:
@@ -119,7 +131,7 @@ RegWidth :: proc(reg_idx: u16) -> (width: u16, ok: bool) {
 	switch (reg_idx) {
 	case R_A, R_B, R_FLAGS:
 		return 1, true
-	case R_FP, R_SP, R_PC:
+	case R_FP, R_X, R_SP, R_PC:
 		return 2, true
 	case:
 		log.warnf("invalid register code %d", reg_idx)

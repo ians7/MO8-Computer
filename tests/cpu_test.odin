@@ -36,18 +36,19 @@ reset_cpu :: proc(m: ^hw.Machine) {
 // Register indices as they appear in the dst (bits 10-8) and src (bits 2-0)
 // fields. These are the hardware's own codes rather than a second copy of the
 // table: a copy would keep passing after a renumbering while every real
-// instruction started naming the wrong register. Codes 3 and 7 are unassigned.
+// instruction started naming the wrong register. Code 7 is unassigned.
 R_A :: hw.R_A
 R_B :: hw.R_B
 R_FP :: hw.R_FP
+R_X :: hw.R_X
 R_SP :: hw.R_SP
 R_PC :: hw.R_PC
 R_FLAGS :: hw.R_FLAGS
 
-// The two codes the register file deliberately does not assign. Naming one is
+// The one code the register file deliberately does not assign. Naming it is
 // an error rather than an alias onto a real register, and several tests below
 // check that the error is refused rather than absorbed.
-R_UNASSIGNED :: [?]u16{3, 7}
+R_UNASSIGNED :: [?]u16{7}
 
 // Instruction builders, one per operand form in docs/cpu-spec.md. Building from
 // the Op enum rather than hard-coded hex means an opcode renumbering moves these
@@ -992,6 +993,7 @@ reg_read_test :: proc(t: ^testing.T) {
 	m.regs.a = 0x11
 	m.regs.b = 0x22
 	m.regs.fp = 0x3344
+	m.regs.x = 0x99AA
 	m.regs.sp = 0x5566
 	m.regs.pc = 0x7788
 	m.regs.flags = 0x99
@@ -1006,6 +1008,7 @@ reg_read_test :: proc(t: ^testing.T) {
 			{R_A, "a", 0x0011, 0xFF},
 			{R_B, "b", 0x0022, 0xFF},
 			{R_FP, "fp", 0x3344, 0xFFFF},
+			{R_X, "x", 0x99AA, 0xFFFF},
 			{R_SP, "sp", 0x5566, 0xFFFF},
 			{R_PC, "pc", 0x7788, 0xFFFF},
 			{R_FLAGS, "flags", 0x0099, 0xFF},
@@ -1039,6 +1042,7 @@ reg_write_truncates_test :: proc(t: ^testing.T) {
 	testing.expect(t, hw.RegWrite(&m, R_B, 0x12FF), "RegWrite(b) returned ok=false")
 	testing.expect(t, hw.RegWrite(&m, R_FLAGS, 0xBEEF), "RegWrite(flags) returned ok=false")
 	testing.expect(t, hw.RegWrite(&m, R_FP, 0xBEEF), "RegWrite(fp) returned ok=false")
+	testing.expect(t, hw.RegWrite(&m, R_X, 0xD00D), "RegWrite(x) returned ok=false")
 	testing.expect(t, hw.RegWrite(&m, R_SP, 0xCAFE), "RegWrite(sp) returned ok=false")
 	testing.expect(t, hw.RegWrite(&m, R_PC, 0xF00D), "RegWrite(pc) returned ok=false")
 
@@ -1046,11 +1050,12 @@ reg_write_truncates_test :: proc(t: ^testing.T) {
 	testing.expect_value(t, m.regs.b, u8(0xFF))
 	testing.expect_value(t, m.regs.flags, u8(0xEF))
 	testing.expect_value(t, m.regs.fp, u16(0xBEEF))
+	testing.expect_value(t, m.regs.x, u16(0xD00D))
 	testing.expect_value(t, m.regs.sp, u16(0xCAFE))
 	testing.expect_value(t, m.regs.pc, u16(0xF00D))
 
 	// A read of what was just written round-trips through the widening.
-	for reg in ([]u16{R_A, R_B, R_FP, R_SP, R_PC, R_FLAGS}) {
+	for reg in ([]u16{R_A, R_B, R_FP, R_X, R_SP, R_PC, R_FLAGS}) {
 		before, _, _ := hw.RegRead(&m, reg)
 		hw.RegWrite(&m, reg, before)
 		after, _, _ := hw.RegRead(&m, reg)
@@ -1082,6 +1087,7 @@ reg_width_test :: proc(t: ^testing.T) {
 			{R_B, "b", 1},
 			{R_FLAGS, "flags", 1},
 			{R_FP, "fp", 2},
+			{R_X, "x", 2},
 			{R_SP, "sp", 2},
 			{R_PC, "pc", 2},
 		}) {
@@ -1095,7 +1101,7 @@ reg_width_test :: proc(t: ^testing.T) {
 	// The width the accessor reports and the width the register actually holds
 	// have to agree, or a push writes a different number of bytes than a pop
 	// reads back.
-	for reg in ([]u16{R_A, R_B, R_FLAGS, R_FP, R_SP, R_PC}) {
+	for reg in ([]u16{R_A, R_B, R_FLAGS, R_FP, R_X, R_SP, R_PC}) {
 		width, _ := hw.RegWidth(reg)
 		_, reg_max, _ := hw.RegRead(&m, reg)
 		want_max := width == 1 ? int(max(u8)) : int(max(u16))

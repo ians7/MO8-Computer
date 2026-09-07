@@ -71,7 +71,15 @@ Reg :: struct {
 	code: u16,
 }
 
-REGISTERS :: [?]Reg{{"a", 0}, {"b", 1}, {"fp", 2}, {"sp", 4}, {"pc", 5}, {"flags", 6}}
+REGISTERS :: [?]Reg {
+	{"a", 0},
+	{"b", 1},
+	{"fp", 2},
+	{"x", 3},
+	{"sp", 4},
+	{"pc", 5},
+	{"flags", 6},
+}
 
 Line :: struct {
 	toks:   []string,
@@ -103,8 +111,12 @@ GET_INST_DATA :: proc(inst_name: string) -> (Inst, bool) {
 
 lower_ascii_in_place :: proc(s: string) {
 	bytes := transmute([]byte)s
+	quote := false
 	for &b in bytes {
-		if 'A' <= b && b <= 'Z' {
+		if b == '"' {
+			quote = !quote
+		}
+		if !quote && 'A' <= b && b <= 'Z' {
 			b += 32
 		}
 	}
@@ -195,19 +207,6 @@ REL :: #force_inline proc(rel_value: string) -> (u16, bool) {
 
 assemble_inst :: proc(asm_inst: string) {
 
-}
-
-flagchecker :: proc(model: rawptr, name: string, value: any, args_tag: string) -> (error: string) {
-
-	// if name == "file" {
-	// } else if name == "output" {
-	// 	v := value.(string)
-	// 	if v == "" {
-	// 		error = "provide a filename for output"
-	// 	}
-	// }
-
-	return
 }
 
 instruction_pass :: proc(asm_file: []Line) -> []u8 {
@@ -324,11 +323,6 @@ comments_pass :: proc(asm_file: string, allocator := context.allocator) -> [dyna
 
 		line_tok := strings.fields(l, allocator)
 		n_toks := len(line_tok)
-
-		if n_toks > 3 {
-			n_errs += 1
-			fmt.println("Max of three tokens per line:", l)
-		}
 
 		if (n_toks == 0) {
 			delete(line_tok, allocator)
@@ -574,9 +568,9 @@ alias_text_destroy :: proc(gen_text: ^[dynamic]string, allocator := context.allo
 }
 
 main :: proc() {
-	// track: debug.Tracker
-	// context.allocator = debug.track_start(&track)
-	// defer debug.track_report(&track)
+	track: debug.Tracker
+	context.allocator = debug.track_start(&track)
+	defer debug.track_report(&track)
 
 	context.logger = log.create_console_logger()
 	defer log.destroy_console_logger(context.logger)
@@ -589,7 +583,6 @@ main :: proc() {
 	opt: Options
 	style: flags.Parsing_Style = .Odin
 
-	flags.register_flag_checker(flagchecker)
 	flags.parse_or_exit(&opt, os.args, style)
 
 	asm_file, in_err := os.read_entire_file(opt.file, context.allocator)

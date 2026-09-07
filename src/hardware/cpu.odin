@@ -13,7 +13,7 @@ S :: enum {
 	n     = 0b10000000,
 }
 
-STACK_BASE :: 0x7FFF
+STACK_BASE :: 0x8000
 
 Machine :: struct {
 	regs:   Registers,
