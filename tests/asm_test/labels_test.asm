@@ -1,5 +1,6 @@
 ; Forward and backward label references, mixed case, and comments in every
 ; position the tokenizer has to cope with.
+.section code
 _START_:
 	MOVI a 0        ; addr 0x0000
 	MOVI b 4        ; addr 0x0002
@@ -13,3 +14,4 @@ LOOP:               ; addr 0x0004
 ; a comment on its own line emits nothing
 DONE:               ; addr 0x000c
 	HALT
+.endsection

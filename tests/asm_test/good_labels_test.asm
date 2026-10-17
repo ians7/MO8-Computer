@@ -1,3 +1,4 @@
+.section code
 _START_:
 	MOVI  a 0
 LOOP_TAG3:
@@ -14,3 +15,4 @@ HELLO2:
 
 DONE:
 HALT
+.endsection

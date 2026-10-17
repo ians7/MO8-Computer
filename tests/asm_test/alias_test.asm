@@ -1,5 +1,6 @@
 ; call/ret are the only aliases; each is several real instructions wide, so
 ; the addresses after them depend on the widths in INST_DATA.
+.section code
 MAIN:
 	MOVI a 0xEF
 	PUSH a
@@ -26,3 +27,4 @@ HELPER:             ; addr 0x0022
 	MOVI b 0xEF
 	ST b a
 	RET
+.endsection
