@@ -28,17 +28,32 @@ import "core:testing"
 // One run of the front end, plus everything it allocated.
 Pipeline :: struct {
 	src:       []u8, // owned; every token points into this
-	lines:     [dynamic]assembler.Line, // comments_pass output
+	all_lines: [dynamic]assembler.Line, // comments_pass output, before sections
+	data:      [dynamic]assembler.Line, // section_pass data lines
+	lines:     [dynamic]assembler.Line, // the code lines every later pass sees
 	labels:    map[string]string, // label_pass output
 	offsets:   [dynamic]string, // backing text for the resolved jump offsets
 	expanded:  [dynamic]assembler.Line, // alias_pass output
 	gen_text:  [dynamic]string, // backing text for the expanded lines
 	code:      []u8, // instruction_pass output
-	label_ok:  bool,
-	alias_ok:  bool,
-	ran_label: bool,
-	ran_alias: bool,
-	ran_code:  bool,
+	label_ok:    bool,
+	alias_ok:    bool,
+	code_ok:     bool,
+	section_ok:  bool,
+	ran_label:   bool,
+	ran_alias:   bool,
+	ran_code:    bool,
+	ran_section: bool,
+}
+
+// .section and .endsection are consumed by the section pass: they appear in
+// all_lines and in neither output list, so they are the one set of tokens
+// teardown has to chase down by hand.
+is_section_directive :: proc(l: assembler.Line) -> bool {
+	if l.ntoks == 0 || len(l.toks) == 0 {
+		return false
+	}
+	return l.toks[0] == ".section" || l.toks[0] == ".endsection"
 }
 
 // comments_pass lowercases tokens in place, so the source has to be a writable
@@ -47,6 +62,15 @@ pipe_text :: proc(p: ^Pipeline, text: string) {
 	p.src = make([]u8, len(text))
 	copy(p.src, text)
 	p.lines = assembler.comments_pass(string(p.src))
+
+	// A fixture that declares sections goes through the section pass, so the
+	// later passes see code lines only and never meet a directive. The inline
+	// sources in these tests declare none and are already all code.
+	if strings.contains(text, ".section") {
+		p.all_lines = p.lines
+		p.data, p.lines, p.section_ok = assembler.section_pass(p.all_lines)
+		p.ran_section = true
+	}
 }
 
 // Fixture programs, embedded at compile time. #load resolves relative to this
@@ -71,7 +95,7 @@ pipe_alias :: proc(p: ^Pipeline) {
 // comments_pass's otherwise. The bytes own no borrowed memory, unlike every
 // other stage, so they are just a slice to release.
 pipe_encode :: proc(p: ^Pipeline) {
-	p.code = assembler.instruction_pass(p.ran_alias ? p.expanded[:] : p.lines[:])
+	p.code, p.code_ok = assembler.instruction_pass(p.ran_alias ? p.expanded[:] : p.lines[:])
 	p.ran_code = true
 }
 
@@ -90,6 +114,20 @@ pipe_destroy :: proc(p: ^Pipeline) {
 	}
 	if p.ran_alias {
 		delete(p.expanded)
+	}
+	if p.ran_section {
+		// the data lines and the directives never reach alias_pass, so neither
+		// list above owns them
+		for line in p.data {
+			delete(line.toks)
+		}
+		for line in p.all_lines {
+			if is_section_directive(line) {
+				delete(line.toks)
+			}
+		}
+		delete(p.data)
+		delete(p.all_lines)
 	}
 	delete(p.lines)
 	if p.ran_code {
@@ -875,20 +913,20 @@ alias_pass_call_test :: proc(t: ^testing.T) {
 	expect_toks(t, p.expanded[14], []string{"addi", "fp", "0x22"})
 
 	// Every line the expansion produced is attributed to the call it came
-	// from, which in alias_test.asm is on source line 12. Without that a later
+	// from, which in alias_test.asm is on source line 13. Without that a later
 	// pass could only report an error against a line the user never wrote.
 	for i in 8 ..< 16 {
 		testing.expectf(
 			t,
-			p.expanded[i].lineno == 12,
-			"expanded line %d: got lineno %d, want 12 (the call it came from)",
+			p.expanded[i].lineno == 13,
+			"expanded line %d: got lineno %d, want 13 (the call it came from)",
 			i,
 			p.expanded[i].lineno,
 		)
 	}
 
 	// and the lines that were merely forwarded keep their own numbers
-	testing.expect_value(t, p.expanded[16].lineno, 13) // halt
+	testing.expect_value(t, p.expanded[16].lineno, 14) // halt
 
 	call_data, ok := assembler.GET_INST_DATA("call")
 	testing.expect(t, ok, "call should be in INST_DATA")

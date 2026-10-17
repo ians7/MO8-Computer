@@ -13,9 +13,13 @@ package assembler
 
 import "../debug"
 import "core:fmt"
+import "core:slice"
 
 // column that the per-line instruction metadata is padded out to
 TOK_COLUMN :: 30
+
+// bytes per row in the data section hex dump
+DUMP_COLUMNS :: 16
 
 when debug.ENABLED {
 	/*
@@ -40,11 +44,44 @@ when debug.ENABLED {
 	}
 
 	/*
+	* Returns the colour a given section is rendered in
+	*/
+	section_color :: proc(sec: SECTION_TYPE) -> string {
+		switch sec {
+		case .CODE:
+			return debug.GREEN
+		case .DATA:
+			return debug.YELLOW
+		case .NONE:
+			return debug.GREY
+		}
+		return debug.RESET
+	}
+
+	/*
+	* Prints the trailing "| code" tag that every line's metadata ends with, so
+	* section membership is visible in every dump, not just the section one
+	*/
+	print_section_tag :: proc(sec: SECTION_TYPE) {
+		fmt.eprintf(
+			" %s|%s %s%v%s\n",
+			debug.DIM,
+			debug.RESET,
+			section_color(sec),
+			sec,
+			debug.RESET,
+		)
+	}
+
+	/*
 	* Returns the colour a single token is rendered in, based on its role
 	*/
 	tok_color :: proc(tok: string, is_mnemonic: bool) -> string {
 		if len(tok) == 0 {
 			return debug.RESET
+		}
+		if tok[0] == '.' {
+			return debug.BLUE // assembler directive (.section/.endsection)
 		}
 		if tok[len(tok) - 1] == ':' {
 			return debug.MAGENTA // label definition, checked before the
@@ -94,13 +131,23 @@ when debug.ENABLED {
 		fmt.eprintf("%s#%s ", debug.DIM, debug.RESET)
 
 		if l.ntoks == 0 || len(l.toks) == 0 {
-			fmt.eprintf("%s<empty>%s\n", debug.GREY, debug.RESET)
+			fmt.eprintf("%s<empty>%s", debug.GREY, debug.RESET)
+			print_section_tag(l.section)
+			return
+		}
+
+		// directives are consumed by the section pass, so they never reach an
+		// instruction lookup and are not errors either
+		if l.toks[0][0] == '.' {
+			fmt.eprintf("%sdirective%s", debug.BLUE, debug.RESET)
+			print_section_tag(l.section)
 			return
 		}
 
 		// label definitions survive tokenizing, so they are not errors
 		if l.toks[0][len(l.toks[0]) - 1] == ':' {
-			fmt.eprintf("%slabel%s\n", debug.MAGENTA, debug.RESET)
+			fmt.eprintf("%slabel%s", debug.MAGENTA, debug.RESET)
+			print_section_tag(l.section)
 			return
 		}
 
@@ -108,7 +155,8 @@ when debug.ENABLED {
 		if !ok {
 			// unknown mnemonic: say so rather than print a zeroed Inst, whose
 			// empty name and .ALIAS type (enum value 0) would read as real data
-			fmt.eprintf("%sunknown mnemonic%s\n", debug.RED, debug.RESET)
+			fmt.eprintf("%sunknown mnemonic%s", debug.RED, debug.RESET)
+			print_section_tag(l.section)
 			return
 		}
 
@@ -122,7 +170,7 @@ when debug.ENABLED {
 		if l.ntoks - 1 != inst.n_operands {
 			fmt.eprintf(" %s(got %d)%s", debug.RED, l.ntoks - 1, debug.RESET)
 		}
-		fmt.eprint("\n")
+		print_section_tag(l.section)
 	}
 
 	/*
@@ -132,6 +180,94 @@ when debug.ENABLED {
 		debug.logf("%d parsed lines:", len(lines))
 		for l in lines {
 			debug_print_line(l)
+		}
+	}
+
+	/*
+	* Prints the lines of one section, under a heading naming it
+	*/
+	debug_print_section :: proc(sec: SECTION_TYPE, lines: []Line) {
+		debug.logf(
+			"%s%v%s section, %d lines:",
+			section_color(sec),
+			sec,
+			debug.RESET,
+			len(lines),
+		)
+		for l in lines {
+			debug_print_line(l)
+		}
+	}
+
+	/*
+	* Prints both sections split out by section_pass
+	*/
+	debug_print_sections :: proc(data_section, code_section: []Line) {
+		debug_print_section(.CODE, code_section)
+		debug_print_section(.DATA, data_section)
+	}
+
+	/*
+	* Prints the laid-out data block: every name against the address it resolved
+	* to, then a hex dump of the bytes with an ascii gutter, so a string can be
+	* read back out of the dump and checked against its source line
+	*/
+	debug_print_data :: proc(data: []u8, names: map[string]u16, base: u16) {
+		Entry :: struct {
+			name: string,
+			addr: u16,
+		}
+
+		entries := make([dynamic]Entry, 0, len(names), context.temp_allocator)
+		defer delete(entries)
+		for name, addr in names {
+			append(&entries, Entry{name, addr})
+		}
+		slice.sort_by(entries[:], proc(a, b: Entry) -> bool {return a.addr < b.addr})
+
+		debug.logf("%d data names:", len(entries))
+		for e in entries {
+			fmt.eprintf(
+				"     %s0x%04x%s %s->%s %s%s%s\n",
+				debug.YELLOW,
+				e.addr,
+				debug.RESET,
+				debug.DIM,
+				debug.RESET,
+				debug.MAGENTA,
+				e.name,
+				debug.RESET,
+			)
+		}
+
+		if len(data) == 0 {
+			return
+		}
+
+		debug.logf("%d data bytes:", len(data))
+		for row := 0; row < len(data); row += DUMP_COLUMNS {
+			end := min(row + DUMP_COLUMNS, len(data))
+
+			fmt.eprintf("     %s0x%04x%s ", debug.GREY, int(base) + row, debug.RESET)
+			for i in row ..< row + DUMP_COLUMNS {
+				if i < end {
+					fmt.eprintf("%s%02x%s ", debug.YELLOW, data[i], debug.RESET)
+				} else {
+					fmt.eprint("   ")
+				}
+			}
+
+			fmt.eprintf("%s|%s ", debug.DIM, debug.RESET)
+			for b in data[row:end] {
+				// only printable ascii goes in the gutter; everything else is a
+				// dot, so a NUL terminator does not move the column
+				if 0x20 <= b && b < 0x7F {
+					fmt.eprintf("%s%c%s", debug.GREEN, rune(b), debug.RESET)
+				} else {
+					fmt.eprintf("%s.%s", debug.GREY, debug.RESET)
+				}
+			}
+			fmt.eprint("\n")
 		}
 	}
 
@@ -158,4 +294,7 @@ when debug.ENABLED {
 	debug_print_line :: proc(l: Line) {}
 	debug_print_lines :: proc(lines: []Line) {}
 	debug_print_labels :: proc(labels: map[string]string) {}
+	debug_print_section :: proc(sec: SECTION_TYPE, lines: []Line) {}
+	debug_print_sections :: proc(data_section, code_section: []Line) {}
+	debug_print_data :: proc(data: []u8, names: map[string]u16, base: u16) {}
 }
