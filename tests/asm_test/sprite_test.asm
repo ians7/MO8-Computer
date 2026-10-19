@@ -1,16 +1,30 @@
 ; The sprite path is relative to this file, not to the working directory.
 .section data
-	.sprite spr1 "assets/white_walker.ase"
+	; Going to treat these as sort of static arrays for ease of use
+
+	.byte   ww-front_arr_len 1
+	.sprite ww-front "assets/white_walker.ase"
+
+	.byte 	ww_right_arr_len 2
+	.sprite ww-right "assets/WW-RightFacing.ase"
+	.sprite ww-rightw "assets/WW-RightWalking.ase"
+
+	.byte 	ww_left_arr_len 2
+	.sprite ww-left "assets/WW-LeftFacing.ase"
+	.sprite ww-leftw "assets/WW-LeftWalking.ase"
+
 	.string word "ABC"
   .byte   SPRITE_x  0x30
   .byte   SPRITE_y  0x30
   .byte   BACK_BUF  0xB0
 	
 	;  TEXT_BASE_ADDR 0xFFFF
-	;  KEY_ADDR 0xE000
-	;  DISP_PAGE 0xE001
 	;  FB_BASE_1  0x8000
 	;  FB_BASE_2  0xB000
+	;  KEY_ADDR 0xE000
+	;  DISP_PAGE 0xE001
+	;  DIR_FACING 0xE002 -- same values as the key direction
+	;  FRAME_CTR 0xE003 -- bumped by hardware once per frame, wraps at 256
 	;  LEFT   0x1
 	;  RIGHT  0x2
 	;  UP     0x3
@@ -23,12 +37,23 @@
 ; @FUNCTION MAIN
 ; no args
 MAIN:
-	MOVI x 0xE0
+	; initial state
+
+	;;; initial frame buffer ;;;
+	MOVI x 0xE0  
 	SLLI x 8
 	ADDI x 0x01
 	
 	MOVI a 0x80
 	ST a x
+
+	;;; initial character sprite ;;;
+	MOVI fp 0xE0
+	SLLI fp 8
+	ADDI fp 0x02
+	
+	MOVI a 0x4
+	ST a fp
 
 LOOP:
 	MOVI x 0xE0
@@ -36,10 +61,16 @@ LOOP:
 	ADDI x 0x00
 	LD a x
 
+	MOVI fp 0xE0
+	SLLI fp 8
+	ADDI fp 0x02
+
 LEFT:
 	MOVI b 0x1
 	CMPR a b
 	JNE RIGHT
+
+	ST b fp
 	
 	MOVI x >SPRITE_x
 	SLLI x 8
@@ -48,12 +79,29 @@ LEFT:
 
 	SUBI b 2 ; dx
 	ST b x
+
+	; walk cycle: bit 4 of the frame counter flips every 16 frames,
+	; picking ww-left (0) or ww-leftw (1), which sits 0x100 past it
+	MOVI x 0xE0
+	SLLI x 8
+	ADDI x 0x03
+	LD a x
+	SRLI a 4
+	ANDI a 1
+
+	MOVI x >ww-left
+	ADD x a
+	SLLI x 8
+	ADDI x <ww-left
+
 	JMP LD_SPRT
 
 RIGHT:
 	MOVI b 0x2
 	CMPR a b
 	JNE UP
+
+	ST b fp
 	
 	MOVI x >SPRITE_x
 	SLLI x 8
@@ -62,12 +110,29 @@ RIGHT:
 
 	ADDI b 2 ; dx
 	ST b x
+
+	; walk cycle: bit 4 of the frame counter flips every 16 frames,
+	; picking ww-right (0) or ww-rightw (1), which sits 0x100 past it
+	MOVI x 0xE0
+	SLLI x 8
+	ADDI x 0x03
+	LD a x
+	SRLI a 4
+	ANDI a 1
+
+	MOVI x >ww-right
+	ADD x a
+	SLLI x 8
+	ADDI x <ww-right
+
 	JMP LD_SPRT
 
 UP:
 	MOVI b 0x3
 	CMPR a b
 	JNE DOWN
+
+	ST b fp
 
 	MOVI x >SPRITE_y
 	SLLI x 8
@@ -82,7 +147,9 @@ UP:
 DOWN:
 	MOVI b 0x4
 	CMPR a b
-	JNE LD_SPRT
+	JNE NO_INPUT
+
+	ST b fp
 
 	MOVI x >SPRITE_y
 	SLLI x 8
@@ -92,12 +159,50 @@ DOWN:
 	ADDI a 2 ; dy
 	ST a x
 
+	MOVI x >ww-front
+	SLLI x 8
+	ADDI x <ww-front
+
 	JMP LD_SPRT
 
-LD_SPRT:
-	MOVI x >spr1
+NO_INPUT:
+	LD a fp
+	
+LEFT_FACING:
+	MOVI b 0x1
+	CMPR a b
+	JNE RIGHT_FACING
+
+	MOVI x >ww-left
 	SLLI x 8
-	ADDI x <spr1
+	ADDI x <ww-left
+	JMP LD_SPRT
+
+RIGHT_FACING:
+	MOVI b 0x2
+	CMPR a b
+	JNE BACK_FACING
+
+	MOVI x >ww-right
+	SLLI x 8
+	ADDI x <ww-right
+	JMP LD_SPRT
+
+BACK_FACING:
+	MOVI b 0x3
+	CMPR a b
+	JNE FRONT_FACING
+
+FRONT_FACING:
+	MOVI b 0x4
+	CMPR a b
+	JNE LD_SPRT
+
+	MOVI x >ww-front
+	SLLI x 8
+	ADDI x <ww-front
+
+LD_SPRT:
 	
 	PUSH x
 

@@ -186,6 +186,9 @@ FB_BASE_2 :: 0xB000
 FB_LEN :: FB_W * FB_H
 KBD_ADDR :: FB_BASE_2 + FB_LEN
 DISP_PAGE_ADDR :: KBD_ADDR + 1
+// Bumped once per host frame while running; wraps at 256. Programs read it to
+// pace animation in real time. KBD_ADDR + 2 is left free for program state.
+FRAME_CTR_ADDR :: KBD_ADDR + 3
 
 fb_pixels: [FB_LEN]rl.Color
 fb_tex: rl.Texture2D
@@ -957,6 +960,7 @@ main :: proc() {
 
 		switch mode {
 		case .running:
+			machine.memory[FRAME_CTR_ADDR] += 1
 			for _ in 0 ..< CYCLES_PER_FRAME {
 				op, at, still := step(&machine)
 				if op == .PUSH {
