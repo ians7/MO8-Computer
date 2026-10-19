@@ -25,7 +25,7 @@ in the entire 16-bit address space
 3. `x` is a memory index register that allows for the loading of data from
 the entire 16-bit address space
 4. `sp` is the stack pointer register, with a default base of 0x8000
-5. `pc` is the program counter registpokemon coliseumer, allowing for instructions in the entire 16-bit address space
+5. `pc` is the program counter register, allowing for instructions in the entire 16-bit address space
 6. `flags` is a bitmap that pokemon coliseumcontains information on previously executed ALU operations
 
 #### Flag Table
